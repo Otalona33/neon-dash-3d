@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.otalona.neondash'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.otalona.neondash'
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-android:${rootProject.ext.gdxVersion}"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:${rootProject.ext.gdxVersion}:natives-armeabi-v7a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:${rootProject.ext.gdxVersion}:natives-arm64-v8a"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:${rootProject.ext.gdxVersion}:natives-x86"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:${rootProject.ext.gdxVersion}:natives-x86_64"
+}

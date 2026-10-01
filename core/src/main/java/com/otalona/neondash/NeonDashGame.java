@@ -468,7 +468,7 @@ public class NeonDashGame extends ApplicationAdapter {
         float bob = state == State.PLAYING ? (float)Math.sin(elapsed * 9f) * 0.035f : 0f;
         float y = 0.42f + playerY + bob;
         if (importedShip != null) {
-            importedShip.transform.setToScaling(shipScale)
+            importedShip.transform.setToScaling(shipScale, shipScale, shipScale)
                 .translate(-shipCenter.x, -shipCenter.y, -shipCenter.z)
                 .translate(playerX, y + 0.08f, 1.1f);
         }

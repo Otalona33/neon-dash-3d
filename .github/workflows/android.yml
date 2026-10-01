@@ -34,6 +34,32 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon :android:assembleDebug
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install and launch APK in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r android/build/outputs/apk/debug/android-debug.apk
+            adb logcat -c
+            adb shell am start -W -n com.otalona.neondash/.AndroidLauncher
+            sleep 10
+            adb logcat -d -b crash -v threadtime > launch-crash.log
+            cat launch-crash.log
+            if grep -E "FATAL EXCEPTION|Fatal signal" launch-crash.log; then
+              exit 1
+            fi
+            adb shell pidof com.otalona.neondash
+
       - name: Store APK
         uses: actions/upload-artifact@v4
         with:

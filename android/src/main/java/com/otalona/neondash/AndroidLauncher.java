@@ -12,7 +12,9 @@ public class AndroidLauncher extends AndroidApplication {
         config.useAccelerometer = false;
         config.useCompass = false;
         config.useImmersiveMode = true;
-        config.numSamples = 2;
+        // Avoid requesting multisampling at startup; it is optional and can
+        // prevent EGL context creation on some devices and emulator images.
+        config.numSamples = 0;
         initialize(new NeonDashGame(), config);
     }
 }

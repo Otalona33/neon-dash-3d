@@ -57,11 +57,17 @@ jobs:
             cat launch-crash.log
             ! grep -Eq "FATAL EXCEPTION|Fatal signal" launch-crash.log
             adb shell pidof com.otalona.neondash
+            adb shell input tap 540 2450
+            sleep 1
+            mkdir -p artifacts
+            adb exec-out screencap -p > artifacts/neon-dash-garage.png
 
       - name: Store APK
         uses: actions/upload-artifact@v4
         with:
           name: Neon-Dash-3D-debug-APK
-          path: android/build/outputs/apk/debug/*.apk
+          path: |
+            android/build/outputs/apk/debug/*.apk
+            artifacts/neon-dash-garage.png
           if-no-files-found: error
           retention-days: 14

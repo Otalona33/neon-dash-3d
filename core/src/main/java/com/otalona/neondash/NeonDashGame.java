@@ -108,10 +108,10 @@ public class NeonDashGame extends ApplicationAdapter {
         roadModel = b.createBox(9.2f, 0.35f, 72f, mat(new Color(0.045f, 0.065f, 0.13f, 1f)), attrs);
         markModel = b.createBox(0.07f, 0.04f, 1.25f, mat(new Color(0.18f, 0.28f, 0.42f, 1f)), attrs);
         railModel = b.createBox(0.13f, 0.18f, 72f, mat(NEON[0]), attrs);
-        playerModel = b.createBox(0.94f, 0.32f, 1.55f, mat(SKIN_COLORS[0]), attrs);
-        cockpitModel = b.createSphere(0.46f, 0.34f, 0.72f, 20, 14, mat(new Color(0.22f, 0.88f, 1f, 1f)), attrs);
-        noseModel = b.createSphere(0.76f, 0.25f, 0.78f, 18, 12, mat(SKIN_COLORS[0]), attrs);
-        wingModel = b.createBox(0.92f, 0.14f, 0.94f, mat(new Color(0.24f, 0.91f, 1f, 1f)), attrs);
+        playerModel = b.createSphere(0.90f, 0.30f, 1.42f, 24, 16, mat(SKIN_COLORS[0]), attrs);
+        cockpitModel = b.createSphere(0.43f, 0.30f, 0.70f, 20, 14, mat(new Color(0.08f, 0.22f, 0.48f, 1f)), attrs);
+        noseModel = b.createCone(0.88f, 0.40f, 0.88f, 16, mat(SKIN_COLORS[0]), attrs);
+        wingModel = b.createBox(0.74f, 0.085f, 0.62f, mat(new Color(0.24f, 0.91f, 1f, 1f)), attrs);
         engineModel = b.createCylinder(0.30f, 0.58f, 0.30f, 16, mat(new Color(0.12f, 0.22f, 0.42f, 1f)), attrs);
         lampModel = b.createBox(0.22f, 0.075f, 0.12f, mat(new Color(0.50f, 1f, 0.96f, 1f)), attrs);
         lowObstacleModel = b.createBox(1.35f, 0.82f, 0.95f, mat(new Color(1f, 0.22f, 0.48f, 1f)), attrs);
@@ -431,14 +431,14 @@ public class NeonDashGame extends ApplicationAdapter {
         float bob = state == State.PLAYING ? (float)Math.sin(elapsed * 9f) * 0.035f : 0f;
         float y = 0.42f + playerY + bob;
         player.transform.setToTranslation(playerX, y, 1.1f);
-        nose.transform.setToTranslation(playerX, y + 0.08f, 0.43f);
+        nose.transform.setToRotation(Vector3.X, -90f).setTranslation(playerX, y + 0.03f, 0.38f);
         cockpit.transform.setToTranslation(playerX, y + 0.25f, 1.08f);
-        leftWing.transform.setToTranslation(playerX - 0.80f, y - 0.04f, 1.16f);
-        rightWing.transform.setToTranslation(playerX + 0.80f, y - 0.04f, 1.16f);
+        leftWing.transform.setToTranslation(playerX - 0.72f, y - 0.035f, 1.20f);
+        rightWing.transform.setToTranslation(playerX + 0.72f, y - 0.035f, 1.20f);
         leftEngine.transform.setToRotation(Vector3.X, 90f).setTranslation(playerX - 0.48f, y - 0.02f, 1.32f);
         rightEngine.transform.setToRotation(Vector3.X, 90f).setTranslation(playerX + 0.48f, y - 0.02f, 1.32f);
-        leftLamp.transform.setToTranslation(playerX - 0.30f, y + 0.08f, 0.02f);
-        rightLamp.transform.setToTranslation(playerX + 0.30f, y + 0.08f, 0.02f);
+        leftLamp.transform.setToTranslation(playerX - 0.28f, y + 0.14f, 0.17f);
+        rightLamp.transform.setToTranslation(playerX + 0.28f, y + 0.14f, 0.17f);
     }
 
     private void drawBackdrop() {

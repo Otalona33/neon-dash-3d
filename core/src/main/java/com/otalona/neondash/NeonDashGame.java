@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.VertexAttributes;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -59,7 +60,7 @@ public class NeonDashGame extends ApplicationAdapter {
     private Environment environment;
     private SpriteBatch uiBatch;
     private BitmapFont font;
-    private Texture pixel;
+    private Texture pixel, skylineTexture;
     private Model roadModel, markModel, railModel, playerModel, cockpitModel, wingModel;
     private Model lowObstacleModel, tallObstacleModel, coinModel, shieldModel, magnetModel, doubleModel;
     private Model buildingModel, buildingLightModel;
@@ -81,6 +82,8 @@ public class NeonDashGame extends ApplicationAdapter {
         pixmap.fill();
         pixel = new Texture(pixmap);
         pixmap.dispose();
+        skylineTexture = new Texture(Gdx.files.internal("background/neon-city.jpg"));
+        skylineTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 
         camera = new PerspectiveCamera(66f, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.position.set(0f, 7.0f, 11.5f);
@@ -256,6 +259,8 @@ public class NeonDashGame extends ApplicationAdapter {
         else updateScenery(delta * 0.22f);
         updatePlayer(delta);
         ScreenUtils.clear(SKY[zone], true);
+        drawBackdrop();
+        Gdx.gl.glClear(GL20.GL_DEPTH_BUFFER_BIT);
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         camera.viewportWidth = Gdx.graphics.getWidth(); camera.viewportHeight = Gdx.graphics.getHeight(); camera.update();
 
@@ -410,6 +415,22 @@ public class NeonDashGame extends ApplicationAdapter {
         rightWing.transform.setToTranslation(playerX + 0.68f, 0.36f + playerY + bob, 1.12f);
     }
 
+    private void drawBackdrop() {
+        float w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+        float screenAspect = w / h;
+        float imageAspect = (float)skylineTexture.getWidth() / skylineTexture.getHeight();
+        float crop = Math.max(0f, (1f - screenAspect / imageAspect) * 0.5f);
+        Color tint = zone == 1 ? new Color(0.82f, 0.78f, 1f, 1f)
+            : zone == 2 ? new Color(0.75f, 1f, 0.9f, 1f)
+            : zone == 3 ? new Color(1f, 0.76f, 0.9f, 1f) : Color.WHITE;
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+        uiBatch.begin();
+        uiBatch.setColor(tint);
+        uiBatch.draw(skylineTexture, 0, 0, w, h, crop, 0, 1f - crop, 1f);
+        uiBatch.setColor(Color.WHITE);
+        uiBatch.end();
+    }
+
     private void drawInterface() {
         float w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
@@ -492,6 +513,7 @@ public class NeonDashGame extends ApplicationAdapter {
         if (uiBatch != null) uiBatch.dispose();
         if (font != null) font.dispose();
         if (pixel != null) pixel.dispose();
+        if (skylineTexture != null) skylineTexture.dispose();
         if (roadModel != null) roadModel.dispose();
         if (markModel != null) markModel.dispose();
         if (railModel != null) railModel.dispose();

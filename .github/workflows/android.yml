@@ -57,6 +57,8 @@ jobs:
             cat launch-crash.log
             ! grep -Eq "FATAL EXCEPTION|Fatal signal" launch-crash.log
             adb shell pidof com.otalona.neondash
+            adb shell input tap 1230 530
+            sleep 1
             adb shell input tap 540 2450
             sleep 1
             mkdir -p artifacts

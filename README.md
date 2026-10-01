@@ -1,6 +1,6 @@
 # Neon Dash 3D
 
-[Baixar o projeto Android completo (ZIP)](Neon-Dash-3D-Android.zip) · [Repositório público no GitHub](https://github.com/Otalona33/neon-dash-3d)
+[Baixar o projeto Android completo (ZIP)](https://github.com/Otalona33/neon-dash-3d/archive/refs/heads/main.zip) · [Repositório público no GitHub](https://github.com/Otalona33/neon-dash-3d)
 
 Um jogo 3D de corrida infinita para Android, feito em Java com libGDX. Corra por quatro distritos futuristas, troque de faixa, pule barreiras, colete moedas e use escudo, ímã e multiplicador de pontos. Desbloqueie visuais na garagem e bata seu recorde local.
 

@@ -27,7 +27,7 @@ O projeto usa Android `minSdk 23`, `targetSdk 35` e libGDX `1.14.2`. A primeira 
 - `core/`: código do jogo, renderização 3D e controles.
 - `android/`: inicializador Android e configuração do aplicativo.
 
-Os cenários, obstáculos e itens 3D são construídos por código com o libGDX; o jogo inclui uma arte original de cidade noturna como cenário de fundo. Não há modelos ou músicas de terceiros. Os binários nativos do libGDX são incluídos no APK para ARM e x86.
+O hovercraft do jogador combina casco, nariz, cabine, asas, motores e faróis modelados em 3D com o libGDX. Os cenários, obstáculos e itens também são construídos por código; o jogo inclui uma arte original de cidade noturna como cenário de fundo. Não há modelos ou músicas de terceiros. Os binários nativos do libGDX são incluídos no APK para ARM e x86.
 
 ## Licença
 

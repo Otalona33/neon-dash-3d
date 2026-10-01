@@ -55,9 +55,7 @@ jobs:
             sleep 10
             adb logcat -d -b crash -v threadtime > launch-crash.log
             cat launch-crash.log
-            if grep -E "FATAL EXCEPTION|Fatal signal" launch-crash.log; then
-              exit 1
-            fi
+            ! grep -Eq "FATAL EXCEPTION|Fatal signal" launch-crash.log
             adb shell pidof com.otalona.neondash
 
       - name: Store APK

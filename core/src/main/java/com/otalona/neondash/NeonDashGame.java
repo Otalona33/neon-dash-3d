@@ -21,6 +21,7 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.g3d.loader.ObjLoader;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
@@ -64,8 +65,12 @@ public class NeonDashGame extends ApplicationAdapter {
     private Model roadModel, markModel, railModel, playerModel, cockpitModel, wingModel, noseModel, engineModel, lampModel;
     private Model lowObstacleModel, tallObstacleModel, coinModel, shieldModel, magnetModel, doubleModel;
     private Model buildingModel, buildingLightModel;
+    private Model importedShipModel;
     private ModelInstance road, leftRail, rightRail, player, cockpit, leftWing, rightWing, nose;
     private ModelInstance leftEngine, rightEngine, leftLamp, rightLamp;
+    private ModelInstance importedShip;
+    private final Vector3 shipCenter = new Vector3();
+    private float shipScale = 1f;
     private State state = State.MENU;
     private float playerX, playerY, jumpTimer, spawnTimer, elapsed, speed = 11.5f;
     private float shieldTimer, magnetTimer, doubleTimer, hitFlash, worldScroll;
@@ -97,7 +102,9 @@ public class NeonDashGame extends ApplicationAdapter {
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.72f, 0.78f, 0.95f, 1f));
         environment.add(new DirectionalLight().set(0.92f, 0.94f, 1f, -0.45f, -1f, -0.3f));
         buildWorld();
+        loadImportedShip();
         loadProgress();
+        tintImportedShip();
         installInput();
         updatePlayer(0f);
     }
@@ -150,6 +157,32 @@ public class NeonDashGame extends ApplicationAdapter {
     }
 
     private Material mat(Color c) { return new Material(ColorAttribute.createDiffuse(new Color(c))); }
+
+    private void loadImportedShip() {
+        try {
+            importedShipModel = new ObjLoader().loadModel(Gdx.files.internal("models/quaternius/spaceships/OBJ/Spaceship3.obj"));
+            com.badlogic.gdx.math.collision.BoundingBox bounds = new com.badlogic.gdx.math.collision.BoundingBox();
+            importedShipModel.calculateBoundingBox(bounds);
+            Vector3 size = bounds.getDimensions(new Vector3());
+            bounds.getCenter(shipCenter);
+            shipScale = 1.72f / Math.max(size.x, Math.max(size.y, size.z));
+            importedShip = new ModelInstance(importedShipModel);
+            tintImportedShip();
+        } catch (RuntimeException error) {
+            Gdx.app.error("NeonDash", "Optional ship model could not be loaded; using the built-in ship", error);
+            if (importedShipModel != null) { importedShipModel.dispose(); importedShipModel = null; }
+            importedShip = null;
+        }
+    }
+
+    private void tintImportedShip() {
+        if (importedShipModel == null) return;
+        Color base = SKIN_COLORS[selectedSkin];
+        for (Material material : importedShipModel.materials) {
+            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+            if (diffuse != null) diffuse.color.set(base);
+        }
+    }
 
     private void addBuilding(int side, float z) {
         float width = 1.4f + random.nextFloat() * 2.4f;
@@ -256,6 +289,7 @@ public class NeonDashGame extends ApplicationAdapter {
         p.putInteger("skin", selectedSkin).flush();
         playerModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
         noseModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
+        tintImportedShip();
     }
 
     private void startRun() {
@@ -287,10 +321,13 @@ public class NeonDashGame extends ApplicationAdapter {
         modelBatch.render(leftRail, environment); modelBatch.render(rightRail, environment);
         for (ModelInstance mark : laneMarks) modelBatch.render(mark, environment);
         for (Building building : buildings) { modelBatch.render(building.body, environment); modelBatch.render(building.light, environment); }
-        modelBatch.render(player, environment); modelBatch.render(nose, environment); modelBatch.render(cockpit, environment);
-        modelBatch.render(leftWing, environment); modelBatch.render(rightWing, environment);
-        modelBatch.render(leftEngine, environment); modelBatch.render(rightEngine, environment);
-        modelBatch.render(leftLamp, environment); modelBatch.render(rightLamp, environment);
+        if (importedShip != null) modelBatch.render(importedShip, environment);
+        else {
+            modelBatch.render(player, environment); modelBatch.render(nose, environment); modelBatch.render(cockpit, environment);
+            modelBatch.render(leftWing, environment); modelBatch.render(rightWing, environment);
+            modelBatch.render(leftEngine, environment); modelBatch.render(rightEngine, environment);
+            modelBatch.render(leftLamp, environment); modelBatch.render(rightLamp, environment);
+        }
         for (Obstacle obstacle : obstacles) modelBatch.render(obstacle.body, environment);
         for (Pickup pickup : pickups) modelBatch.render(pickup.model, environment);
         modelBatch.end();
@@ -430,6 +467,11 @@ public class NeonDashGame extends ApplicationAdapter {
         } else playerY = 0f;
         float bob = state == State.PLAYING ? (float)Math.sin(elapsed * 9f) * 0.035f : 0f;
         float y = 0.42f + playerY + bob;
+        if (importedShip != null) {
+            importedShip.transform.setToScaling(shipScale)
+                .translate(-shipCenter.x, -shipCenter.y, -shipCenter.z)
+                .translate(playerX, y + 0.08f, 1.1f);
+        }
         player.transform.setToTranslation(playerX, y, 1.1f);
         nose.transform.setToRotation(Vector3.X, -90f).setTranslation(playerX, y + 0.03f, 0.38f);
         cockpit.transform.setToTranslation(playerX, y + 0.25f, 1.08f);
@@ -595,6 +637,7 @@ public class NeonDashGame extends ApplicationAdapter {
         if (doubleModel != null) doubleModel.dispose();
         if (buildingModel != null) buildingModel.dispose();
         if (buildingLightModel != null) buildingLightModel.dispose();
+        if (importedShipModel != null) importedShipModel.dispose();
     }
 
     private static final class Obstacle {

@@ -2,5 +2,8 @@
 .idea/
 local.properties
 **/build/
+android/src/main/assets/assetpacks/
+android/src/main/assets/models/quaternius/
 *.iml
 .DS_Store
+__pycache__/

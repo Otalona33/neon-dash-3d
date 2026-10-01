@@ -31,8 +31,16 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
+      - name: Download and prepare free game assets
+        run: |
+          python3 -m pip install --user Pillow
+          python3 scripts/fetch_game_assets.py
+
       - name: Build debug APK
         run: gradle --no-daemon :android:assembleDebug
+
+      - name: Check APK size
+        run: test "$(stat -c%s android/build/outputs/apk/debug/android-debug.apk)" -ge 314572800
 
       - name: Enable KVM
         run: |

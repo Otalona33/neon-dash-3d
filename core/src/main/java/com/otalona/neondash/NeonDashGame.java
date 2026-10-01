@@ -95,7 +95,7 @@ public class NeonDashGame extends ApplicationAdapter {
         buildWorld();
         loadProgress();
         installInput();
-        positionPlayer();
+        updatePlayer(0f);
     }
 
     private void buildWorld() {

@@ -2,18 +2,20 @@
 
 [Baixar o projeto Android completo (ZIP)](Neon-Dash-3D-Android.zip) · [Repositório público no GitHub](https://github.com/Otalona33/neon-dash-3d)
 
-Um jogo 3D de corrida infinita para Android, feito em Java com libGDX. O jogador muda entre três faixas e pula para evitar os blocos. A velocidade aumenta aos poucos e o recorde fica salvo localmente no aparelho.
+Um jogo 3D de corrida infinita para Android, feito em Java com libGDX. Corra por quatro distritos futuristas, troque de faixa, pule barreiras, colete moedas e use escudo, ímã e multiplicador de pontos. Desbloqueie visuais na garagem e bata seu recorde local.
 
 ## Como jogar
 
 - Deslize para a esquerda ou para a direita para trocar de faixa.
-- Deslize para cima para pular.
-- Toque na tela para iniciar e, depois de perder, para jogar novamente.
+- Deslize para cima ou toque para pular.
+- Toque no botão `II` no alto à direita para pausar.
+- Recolha moedas e poderes: escudo, ímã de moedas e pontuação em dobro.
+- Abra a garagem pelo menu para equipar ou comprar visuais.
 - No teclado: setas ou A/D para mudar de faixa; seta para cima, W ou Espaço para pular.
 
 ## Abrir e compilar
 
-1. Instale o Android Studio, um JDK 17 e o Android SDK Platform 35.
+1. Instale o Android Studio, um JDK 17 e o Android SDK Platform 36.
 2. Abra a pasta `neon-dash-3d` no Android Studio e aguarde a sincronização do Gradle.
 3. Execute o app em um dispositivo Android ou emulador com OpenGL ES 2.0 ou superior.
 4. Com Gradle 8.11.1 instalado, gere um APK de depuração com `gradle :android:assembleDebug`. O arquivo será criado em `android/build/outputs/apk/debug/`.
@@ -25,7 +27,7 @@ O projeto usa Android `minSdk 23`, `targetSdk 35` e libGDX `1.14.2`. A primeira 
 - `core/`: código do jogo, renderização 3D e controles.
 - `android/`: inicializador Android e configuração do aplicativo.
 
-Todos os modelos 3D são formas geométricas criadas em tempo de execução. O projeto não usa imagens, músicas ou modelos de terceiros.
+Os cenários, obstáculos e itens 3D são construídos por código com o libGDX; o projeto não usa imagens, músicas ou modelos de terceiros. Os binários nativos do libGDX são incluídos no APK para ARM e x86.
 
 ## Licença
 

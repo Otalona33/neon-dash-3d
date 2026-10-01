@@ -7,7 +7,11 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
@@ -16,8 +20,6 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
@@ -25,181 +27,500 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import java.util.Iterator;
 import java.util.Random;
 
-/** A small, asset-free 3D lane runner made with libGDX. */
+/** Neon Dash 3D: a touch-controlled endless runner built with libGDX. */
 public class NeonDashGame extends ApplicationAdapter {
-    private static final Color BG = new Color(0.025f, 0.04f, 0.09f, 1f);
     private static final float[] LANES = {-2.1f, 0f, 2.1f};
+    private static final Color[] SKIN_COLORS = {
+        new Color(0.12f, 0.95f, 0.8f, 1f), new Color(0.72f, 0.48f, 1f, 1f),
+        new Color(1f, 0.35f, 0.58f, 1f), new Color(1f, 0.72f, 0.2f, 1f)
+    };
+    private static final int COIN = 0, SHIELD = 1, MAGNET = 2, DOUBLE_SCORE = 3;
+    private static final String[] DISTRICTS = {
+        "METRO NEON", "VALE CRISTAL", "PORTO CIBERNETICO", "CIDADE AURORA"
+    };
+    private static final Color[] SKY = {
+        new Color(0.018f, 0.035f, 0.085f, 1f), new Color(0.06f, 0.025f, 0.12f, 1f),
+        new Color(0.015f, 0.075f, 0.095f, 1f), new Color(0.10f, 0.035f, 0.10f, 1f)
+    };
+    private static final Color[] NEON = {
+        new Color(0.08f, 0.88f, 0.82f, 1f), new Color(0.68f, 0.35f, 1f, 1f),
+        new Color(0.15f, 0.92f, 0.72f, 1f), new Color(1f, 0.38f, 0.70f, 1f)
+    };
+
+    private enum State { MENU, PLAYING, PAUSED, GAME_OVER, GARAGE }
     private final Random random = new Random();
     private final Array<Obstacle> obstacles = new Array<>();
+    private final Array<Pickup> pickups = new Array<>();
     private final Array<ModelInstance> laneMarks = new Array<>();
+    private final Array<Building> buildings = new Array<>();
 
     private PerspectiveCamera camera;
     private ModelBatch modelBatch;
     private Environment environment;
-    private SpriteBatch spriteBatch;
+    private SpriteBatch uiBatch;
     private BitmapFont font;
-    private Model playerModel, floorModel, laneMarkModel, railModel, obstacleModel, accentModel;
-    private ModelInstance player, floorLeft, leftRail, rightRail;
-    private float playerX, playerY, jumpTime, spawnTimer, elapsed, speed = 12f;
-    private int lane = 1, score, best;
-    private boolean started, gameOver;
+    private Texture pixel;
+    private Model roadModel, markModel, railModel, playerModel, cockpitModel, wingModel;
+    private Model lowObstacleModel, tallObstacleModel, coinModel, shieldModel, magnetModel, doubleModel;
+    private Model buildingModel, buildingLightModel;
+    private ModelInstance road, leftRail, rightRail, player, cockpit, leftWing, rightWing;
+    private State state = State.MENU;
+    private float playerX, playerY, jumpTimer, spawnTimer, elapsed, speed = 11.5f;
+    private float shieldTimer, magnetTimer, doubleTimer, hitFlash, worldScroll;
+    private int lane = 1, score, best, runCoins, totalCoins, selectedSkin, zone;
+    private boolean[] unlockedSkins = {true, false, false, false};
     private int touchStartX, touchStartY;
 
     @Override public void create() {
         modelBatch = new ModelBatch();
-        spriteBatch = new SpriteBatch();
+        uiBatch = new SpriteBatch();
         font = new BitmapFont();
-        font.getData().setScale(1.25f);
-        camera = new PerspectiveCamera(67f, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        camera.position.set(0f, 7.2f, 10.5f);
-        camera.lookAt(0f, 0.5f, -8f);
+        font.getData().setScale(1.12f);
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        pixel = new Texture(pixmap);
+        pixmap.dispose();
+
+        camera = new PerspectiveCamera(66f, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera.position.set(0f, 7.0f, 11.5f);
+        camera.lookAt(0f, 0.6f, -9f);
         camera.near = 0.1f;
-        camera.far = 90f;
+        camera.far = 100f;
         camera.update();
 
         environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.72f, 0.77f, 0.92f, 1f));
-        environment.add(new DirectionalLight().set(0.85f, 0.9f, 1f, -0.5f, -1f, -0.25f));
-        ModelBuilder builder = new ModelBuilder();
+        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.72f, 0.78f, 0.95f, 1f));
+        environment.add(new DirectionalLight().set(0.92f, 0.94f, 1f, -0.45f, -1f, -0.3f));
+        buildWorld();
+        loadProgress();
+        installInput();
+        positionPlayer();
+    }
+
+    private void buildWorld() {
+        ModelBuilder b = new ModelBuilder();
         long attrs = VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal;
-        floorModel = builder.createBox(9.2f, 0.35f, 72f, material(new Color(0.055f,0.075f,0.14f,1)), attrs);
-        laneMarkModel = builder.createBox(0.075f, 0.035f, 1.2f, material(new Color(0.16f,0.25f,0.39f,1)), attrs);
-        railModel = builder.createBox(0.12f, 0.16f, 72f, material(new Color(0.10f,0.85f,0.78f,1)), attrs);
-        playerModel = builder.createBox(0.95f, 1.0f, 0.82f, material(new Color(0.12f,0.95f,0.8f,1)), attrs);
-        obstacleModel = builder.createBox(1.1f, 1.5f, 0.85f, material(new Color(1f,0.25f,0.47f,1)), attrs);
-        accentModel = builder.createBox(1.18f, 0.14f, 0.92f, material(new Color(1f,0.73f,0.22f,1)), attrs);
-        floorLeft = new ModelInstance(floorModel); floorLeft.transform.setToTranslation(0f,-0.28f,-17f);
-        leftRail = new ModelInstance(railModel); leftRail.transform.setToTranslation(-4.45f,-0.02f,-17f);
-        rightRail = new ModelInstance(railModel); rightRail.transform.setToTranslation(4.45f,-0.02f,-17f);
+        roadModel = b.createBox(9.2f, 0.35f, 72f, mat(new Color(0.045f, 0.065f, 0.13f, 1f)), attrs);
+        markModel = b.createBox(0.07f, 0.04f, 1.25f, mat(new Color(0.18f, 0.28f, 0.42f, 1f)), attrs);
+        railModel = b.createBox(0.13f, 0.18f, 72f, mat(NEON[0]), attrs);
+        playerModel = b.createBox(1.18f, 0.40f, 1.18f, mat(SKIN_COLORS[0]), attrs);
+        cockpitModel = b.createSphere(0.66f, 0.45f, 0.66f, 18, 12, mat(new Color(1f, 0.78f, 0.32f, 1f)), attrs);
+        wingModel = b.createBox(0.28f, 0.18f, 0.72f, mat(new Color(0.3f, 0.9f, 1f, 1f)), attrs);
+        lowObstacleModel = b.createBox(1.35f, 0.82f, 0.95f, mat(new Color(1f, 0.22f, 0.48f, 1f)), attrs);
+        tallObstacleModel = b.createBox(1.2f, 2.8f, 0.9f, mat(new Color(0.98f, 0.24f, 0.38f, 1f)), attrs);
+        coinModel = b.createCylinder(0.64f, 0.16f, 0.64f, 18, mat(new Color(1f, 0.77f, 0.18f, 1f)), attrs);
+        shieldModel = b.createSphere(0.78f, 0.78f, 0.78f, 16, 12, mat(new Color(0.15f, 0.72f, 1f, 1f)), attrs);
+        magnetModel = b.createSphere(0.78f, 0.78f, 0.78f, 16, 12, mat(new Color(1f, 0.25f, 0.68f, 1f)), attrs);
+        doubleModel = b.createSphere(0.78f, 0.78f, 0.78f, 16, 12, mat(new Color(0.55f, 1f, 0.38f, 1f)), attrs);
+        buildingModel = b.createBox(1f, 1f, 1f, mat(new Color(0.10f, 0.14f, 0.3f, 1f)), attrs);
+        buildingLightModel = b.createBox(0.1f, 1f, 0.06f, mat(new Color(0.12f, 0.8f, 1f, 1f)), attrs);
+
+        road = new ModelInstance(roadModel); road.transform.setToTranslation(0f, -0.28f, -17f);
+        leftRail = new ModelInstance(railModel); leftRail.transform.setToTranslation(-4.45f, -0.02f, -17f);
+        rightRail = new ModelInstance(railModel); rightRail.transform.setToTranslation(4.45f, -0.02f, -17f);
         player = new ModelInstance(playerModel);
-        for (int i=0; i<32; i++) {
+        cockpit = new ModelInstance(cockpitModel);
+        leftWing = new ModelInstance(wingModel);
+        rightWing = new ModelInstance(wingModel);
+
+        for (int i = 0; i < 36; i++) {
             for (float x : new float[]{-1.05f, 1.05f}) {
-                ModelInstance mark = new ModelInstance(laneMarkModel);
-                mark.transform.setToTranslation(x,-0.08f, 9f-i*2.25f);
+                ModelInstance mark = new ModelInstance(markModel);
+                mark.transform.setToTranslation(x, -0.08f, 9f - i * 2.0f);
                 laneMarks.add(mark);
             }
         }
-        best = Gdx.app.getPreferences("neon-dash").getInteger("best", 0);
-        installInput();
+        for (int i = 0; i < 18; i++) {
+            addBuilding(-1, -72f + i * 4.7f);
+            addBuilding(1, -69.5f + i * 4.7f);
+        }
     }
 
-    private Material material(Color color) { return new Material(ColorAttribute.createDiffuse(color)); }
+    private Material mat(Color c) { return new Material(ColorAttribute.createDiffuse(new Color(c))); }
+
+    private void addBuilding(int side, float z) {
+        float width = 1.4f + random.nextFloat() * 2.4f;
+        float height = 6f + random.nextFloat() * 17f;
+        float depth = 2.2f + random.nextFloat() * 3.8f;
+        float x = side * (6.2f + random.nextFloat() * 5f);
+        ModelInstance body = new ModelInstance(buildingModel);
+        body.transform.setToScaling(width, height, depth).setTranslation(x, height * 0.5f - 0.12f, z);
+        ModelInstance light = new ModelInstance(buildingLightModel);
+        light.transform.setToScaling(1f, height * (0.34f + random.nextFloat() * 0.4f), 1f)
+            .setTranslation(x - side * width * 0.25f, height * 0.5f, z + depth * 0.51f);
+        buildings.add(new Building(side, body, light, width, height, depth, x));
+    }
 
     private void installInput() {
         Gdx.input.setInputProcessor(new InputAdapter() {
             @Override public boolean keyDown(int keycode) {
-                if (gameOver && (keycode == Input.Keys.SPACE || keycode == Input.Keys.ENTER)) { restart(); return true; }
-                if (!started) started = true;
-                if (keycode == Input.Keys.LEFT || keycode == Input.Keys.A) moveLane(-1);
-                if (keycode == Input.Keys.RIGHT || keycode == Input.Keys.D) moveLane(1);
-                if (keycode == Input.Keys.UP || keycode == Input.Keys.SPACE || keycode == Input.Keys.W) jump();
+                if (keycode == Input.Keys.ESCAPE || keycode == Input.Keys.BACK) {
+                    if (state == State.PLAYING) state = State.PAUSED;
+                    else if (state == State.PAUSED || state == State.GARAGE) state = State.MENU;
+                    else state = State.MENU;
+                    return true;
+                }
+                if (state == State.PLAYING) {
+                    if (keycode == Input.Keys.LEFT || keycode == Input.Keys.A) moveLane(-1);
+                    if (keycode == Input.Keys.RIGHT || keycode == Input.Keys.D) moveLane(1);
+                    if (keycode == Input.Keys.UP || keycode == Input.Keys.SPACE || keycode == Input.Keys.W) jump();
+                }
                 return true;
             }
-            @Override public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-                touchStartX = screenX; touchStartY = screenY; return true;
+            @Override public boolean touchDown(int x, int y, int pointer, int button) {
+                touchStartX = x; touchStartY = y; return true;
             }
-            @Override public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-                if (!started || gameOver) { restart(); started = true; return true; }
-                int dx = screenX-touchStartX, dy = screenY-touchStartY;
-                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 32) moveLane(dx < 0 ? -1 : 1);
-                else if (dy < -24 || (Math.abs(dx) < 28 && Math.abs(dy) < 28)) jump();
-                return true;
+            @Override public boolean touchUp(int x, int y, int pointer, int button) {
+                handleTouch(x, y); return true;
             }
         });
     }
 
-    private void moveLane(int direction) { lane = MathUtils.clamp(lane + direction, 0, 2); }
-    private void jump() { if (jumpTime <= 0.01f) jumpTime = 0.72f; }
-    private void restart() {
-        obstacles.clear(); lane = 1; playerX = 0; playerY = 0; jumpTime = 0;
-        spawnTimer = 0.65f; elapsed = 0; score = 0; speed = 12f; gameOver = false;
+    private void handleTouch(int x, int screenY) {
+        float w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+        float y = h - screenY;
+        if (state == State.MENU) {
+            if (inside(x, y, w * 0.2f, h * 0.31f, w * 0.6f, h * 0.105f)) startRun();
+            else if (inside(x, y, w * 0.2f, h * 0.17f, w * 0.6f, h * 0.09f)) state = State.GARAGE;
+            return;
+        }
+        if (state == State.GARAGE) {
+            if (inside(x, y, w * 0.1f, h * 0.08f, w * 0.8f, h * 0.11f)) state = State.MENU;
+            else {
+                int index = MathUtils.clamp((int)((h * 0.72f - y) / (h * 0.115f)), 0, 3);
+                selectSkin(index);
+            }
+            return;
+        }
+        if (state == State.PAUSED) {
+            if (inside(x, y, w * 0.16f, h * 0.34f, w * 0.68f, h * 0.12f)) state = State.PLAYING;
+            else if (inside(x, y, w * 0.16f, h * 0.19f, w * 0.68f, h * 0.11f)) startRun();
+            return;
+        }
+        if (state == State.GAME_OVER) {
+            if (inside(x, y, w * 0.16f, h * 0.22f, w * 0.68f, h * 0.12f)) startRun();
+            else if (inside(x, y, w * 0.16f, h * 0.075f, w * 0.68f, h * 0.10f)) state = State.MENU;
+            return;
+        }
+        if (state == State.PLAYING) {
+            if (inside(x, y, w - 96f, h - 82f, 80f, 64f)) { state = State.PAUSED; return; }
+            int dx = x - touchStartX, dy = screenY - touchStartY;
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 34) moveLane(dx < 0 ? -1 : 1);
+            else if (dy < -25 || (Math.abs(dx) < 30 && Math.abs(dy) < 30)) jump();
+        }
     }
+
+    private boolean inside(float x, float y, float bx, float by, float bw, float bh) {
+        return x >= bx && x <= bx + bw && y >= by && y <= by + bh;
+    }
+
+    private void loadProgress() {
+        com.badlogic.gdx.Preferences p = Gdx.app.getPreferences("neon-dash");
+        best = p.getInteger("best", 0);
+        totalCoins = p.getInteger("coins", 0);
+        selectedSkin = p.getInteger("skin", 0);
+        for (int i = 0; i < unlockedSkins.length; i++) unlockedSkins[i] = p.getBoolean("skin_" + i, i == 0);
+        if (selectedSkin < 0 || selectedSkin >= SKIN_COLORS.length || !unlockedSkins[selectedSkin]) selectedSkin = 0;
+    }
+
+    private void selectSkin(int index) {
+        int[] prices = {0, 60, 120, 200};
+        com.badlogic.gdx.Preferences p = Gdx.app.getPreferences("neon-dash");
+        if (!unlockedSkins[index]) {
+            if (totalCoins < prices[index]) return;
+            totalCoins -= prices[index];
+            unlockedSkins[index] = true;
+            p.putInteger("coins", totalCoins).putBoolean("skin_" + index, true).flush();
+        }
+        selectedSkin = index;
+        p.putInteger("skin", selectedSkin).flush();
+        playerModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
+    }
+
+    private void startRun() {
+        obstacles.clear(); pickups.clear();
+        lane = 1; playerX = 0f; playerY = 0f; jumpTimer = 0f;
+        spawnTimer = 0.7f; elapsed = 0f; score = 0; runCoins = 0; speed = 11.5f;
+        shieldTimer = magnetTimer = doubleTimer = hitFlash = 0f;
+        zone = 0; state = State.PLAYING;
+        playerModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
+    }
+
+    private void moveLane(int direction) { lane = MathUtils.clamp(lane + direction, 0, 2); }
+    private void jump() { if (jumpTimer <= 0.01f) jumpTimer = 0.68f; }
 
     @Override public void render() {
         float delta = Math.min(Gdx.graphics.getDeltaTime(), 0.05f);
-        if (started && !gameOver) update(delta);
-        ScreenUtils.clear(BG, true);
+        if (state == State.PLAYING) updateGame(delta);
+        else updateScenery(delta * 0.22f);
+        updatePlayer(delta);
+        ScreenUtils.clear(SKY[zone], true);
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         camera.viewportWidth = Gdx.graphics.getWidth(); camera.viewportHeight = Gdx.graphics.getHeight(); camera.update();
-        playerX = MathUtils.lerp(playerX, LANES[lane], Math.min(1f, delta*12f));
-        if (jumpTime > 0) { jumpTime = Math.max(0, jumpTime-delta); playerY = (float)Math.sin((0.72f-jumpTime)/0.72f*Math.PI)*1.55f; }
-        else playerY = 0;
-        player.transform.setToTranslation(playerX, 0.52f+playerY, 1.1f);
-        for (ModelInstance mark : laneMarks) {
-            float z = mark.transform.getTranslation(new Vector3()).z + (started && !gameOver ? speed*delta : 0);
-            if (z > 12f) z -= 72f;
-            mark.transform.setToTranslation(0f,-0.08f,z);
-        }
+
         modelBatch.begin(camera);
-        modelBatch.render(floorLeft, environment); modelBatch.render(leftRail, environment); modelBatch.render(rightRail, environment);
+        modelBatch.render(road, environment);
+        modelBatch.render(leftRail, environment); modelBatch.render(rightRail, environment);
         for (ModelInstance mark : laneMarks) modelBatch.render(mark, environment);
-        modelBatch.render(player, environment);
-        for (Obstacle obstacle : obstacles) { modelBatch.render(obstacle.body, environment); modelBatch.render(obstacle.accent, environment); }
+        for (Building building : buildings) { modelBatch.render(building.body, environment); modelBatch.render(building.light, environment); }
+        modelBatch.render(player, environment); modelBatch.render(cockpit, environment);
+        modelBatch.render(leftWing, environment); modelBatch.render(rightWing, environment);
+        for (Obstacle obstacle : obstacles) modelBatch.render(obstacle.body, environment);
+        for (Pickup pickup : pickups) modelBatch.render(pickup.model, environment);
         modelBatch.end();
-        drawHud();
+        drawInterface();
     }
 
-    private void update(float delta) {
-        elapsed += delta; speed = Math.min(21f, 12f + elapsed*0.20f); score = (int)(elapsed*10f);
+    private void updateGame(float delta) {
+        elapsed += delta;
+        zone = ((int)(elapsed / 24f)) % DISTRICTS.length;
+        railModel.materials.first().set(ColorAttribute.createDiffuse(new Color(NEON[zone])));
+        speed = Math.min(23f, 11.5f + elapsed * 0.11f + zone * 0.55f);
+        score = (int)(elapsed * (doubleTimer > 0 ? 20f : 10f));
+        shieldTimer = Math.max(0f, shieldTimer - delta);
+        magnetTimer = Math.max(0f, magnetTimer - delta);
+        doubleTimer = Math.max(0f, doubleTimer - delta);
+        hitFlash = Math.max(0f, hitFlash - delta);
+        updateScenery(delta * speed);
+
         spawnTimer -= delta;
-        if (spawnTimer <= 0) {
-            int chosenLane = random.nextInt(3);
-            float z = -32f;
-            ModelInstance body = new ModelInstance(obstacleModel);
-            body.transform.setToTranslation(LANES[chosenLane], 0.75f, z);
-            ModelInstance accent = new ModelInstance(accentModel);
-            accent.transform.setToTranslation(LANES[chosenLane], 1.42f, z);
-            obstacles.add(new Obstacle(chosenLane, body, accent));
-            spawnTimer = Math.max(0.72f, 1.32f-elapsed*0.006f) + random.nextFloat()*0.42f;
+        if (spawnTimer <= 0f) spawnWave();
+        moveObstacles(delta);
+        movePickups(delta);
+    }
+
+    private void updateScenery(float amount) {
+        worldScroll += amount;
+        for (ModelInstance mark : laneMarks) {
+            float z = mark.transform.getTranslation(new Vector3()).z + amount;
+            if (z > 12f) z -= 72f;
+            mark.transform.setToTranslation(mark.transform.getTranslation(new Vector3()).x, -0.08f, z);
         }
-        Iterator<Obstacle> iterator = obstacles.iterator();
-        while (iterator.hasNext()) {
-            Obstacle obstacle = iterator.next();
-            Vector3 p = obstacle.body.transform.getTranslation(new Vector3());
-            p.z += speed*delta;
-            obstacle.body.transform.setToTranslation(LANES[obstacle.lane], 0.75f, p.z);
-            obstacle.accent.transform.setToTranslation(LANES[obstacle.lane], 1.42f, p.z);
-            if (p.z > 2.2f) iterator.remove();
-            else if (p.z > 0.45f && p.z < 1.85f && obstacle.lane == lane && playerY < 0.6f) endGame();
+        for (Building b : buildings) {
+            float z = b.body.transform.getTranslation(new Vector3()).z + amount;
+            if (z > 17f) {
+                z -= 84.6f;
+                relocateBuilding(b, z);
+            } else {
+                b.body.transform.setToScaling(b.width, b.height, b.depth).setTranslation(b.x, b.height * 0.5f - 0.12f, z);
+                b.light.transform.setToScaling(1f, b.height * 0.42f, 1f)
+                    .setTranslation(b.x - b.side * b.width * 0.25f, b.height * 0.5f, z + b.depth * 0.51f);
+            }
         }
     }
 
-    private void endGame() {
-        gameOver = true;
-        if (score > best) { best = score; Gdx.app.getPreferences("neon-dash").putInteger("best", best).flush(); }
+    private void relocateBuilding(Building b, float z) {
+        b.width = 1.4f + random.nextFloat() * 2.4f;
+        b.height = 6f + random.nextFloat() * 17f;
+        b.depth = 2.2f + random.nextFloat() * 3.8f;
+        b.x = b.side * (6.2f + random.nextFloat() * 5f);
+        int colorIndex = random.nextInt(4);
+        buildingModel.materials.first().set(ColorAttribute.createDiffuse(new Color(
+            0.075f + colorIndex * 0.014f, 0.10f + colorIndex * 0.018f, 0.22f + colorIndex * 0.045f, 1f)));
+        b.body.transform.setToScaling(b.width, b.height, b.depth).setTranslation(b.x, b.height * 0.5f - 0.12f, z);
+        b.light.transform.setToScaling(1f, b.height * (0.34f + random.nextFloat() * 0.4f), 1f)
+            .setTranslation(b.x - b.side * b.width * 0.25f, b.height * 0.5f, z + b.depth * 0.51f);
     }
 
-    private void drawHud() {
-        spriteBatch.begin();
+    private void spawnWave() {
+        int blocked = random.nextInt(3);
+        boolean tall = random.nextFloat() < 0.38f;
+        ModelInstance body = new ModelInstance(tall ? tallObstacleModel : lowObstacleModel);
+        body.transform.setToTranslation(LANES[blocked], tall ? 1.38f : 0.42f, -34f);
+        obstacles.add(new Obstacle(blocked, body, !tall));
+        int safeLane = (blocked + 1 + random.nextInt(2)) % 3;
+        for (int i = 0; i < 4; i++) addPickup(COIN, safeLane, -27f - i * 2.4f);
+        if (random.nextFloat() < 0.17f) {
+            int kind = random.nextInt(3) + 1;
+            addPickup(kind, safeLane, -38f);
+        }
+        spawnTimer = Math.max(0.78f, 1.2f - elapsed * 0.0025f) + random.nextFloat() * 0.32f;
+    }
+
+    private void addPickup(int kind, int laneIndex, float z) {
+        Model model = kind == COIN ? coinModel : kind == SHIELD ? shieldModel : kind == MAGNET ? magnetModel : doubleModel;
+        ModelInstance instance = new ModelInstance(model);
+        instance.transform.setToTranslation(LANES[laneIndex], kind == COIN ? 0.95f : 1.25f, z);
+        if (kind == COIN) instance.transform.rotate(Vector3.X, 90f);
+        pickups.add(new Pickup(kind, laneIndex, instance));
+    }
+
+    private void moveObstacles(float delta) {
+        Iterator<Obstacle> it = obstacles.iterator();
+        while (it.hasNext()) {
+            Obstacle o = it.next();
+            Vector3 p = o.body.transform.getTranslation(new Vector3());
+            p.z += speed * delta;
+            o.body.transform.setTranslation(LANES[o.lane], o.jumpable ? 0.42f : 1.38f, p.z);
+            if (p.z > 3.5f) it.remove();
+            else if (Math.abs(p.z - 1.1f) < 0.78f && o.lane == lane && !(o.jumpable && playerY > 0.88f)) {
+                if (shieldTimer > 0f) { shieldTimer = 0f; hitFlash = 0.45f; it.remove(); }
+                else { finishRun(); return; }
+            }
+        }
+    }
+
+    private void movePickups(float delta) {
+        Iterator<Pickup> it = pickups.iterator();
+        while (it.hasNext()) {
+            Pickup p = it.next();
+            Vector3 pos = p.model.transform.getTranslation(new Vector3());
+            pos.z += speed * delta;
+            if (p.kind == COIN && magnetTimer > 0f && pos.z > -9f && Math.abs(p.lane - lane) <= 1) {
+                pos.x = MathUtils.lerp(pos.x, playerX, delta * 5f);
+            }
+            p.model.transform.setToTranslation(pos.x, p.kind == COIN ? 0.95f : 1.25f, pos.z);
+            if (p.kind == COIN) p.model.transform.rotate(Vector3.X, 90f).rotate(Vector3.Y, 220f * delta);
+            else p.model.transform.rotate(Vector3.Y, 100f * delta);
+            float reach = magnetTimer > 0f && p.kind == COIN ? 1.65f : 0.85f;
+            boolean near = Math.abs(pos.z - 1.1f) < reach && Math.abs(pos.x - playerX) < 0.85f;
+            if (near && (p.kind == COIN || Math.abs(pos.x - playerX) < 1f)) {
+                collect(p.kind); it.remove();
+            } else if (pos.z > 5f) it.remove();
+        }
+    }
+
+    private void collect(int kind) {
+        if (kind == COIN) { runCoins++; score += 25; }
+        if (kind == SHIELD) shieldTimer = 8f;
+        if (kind == MAGNET) magnetTimer = 10f;
+        if (kind == DOUBLE_SCORE) doubleTimer = 10f;
+        hitFlash = 0.12f;
+    }
+
+    private void finishRun() {
+        state = State.GAME_OVER;
+        totalCoins += runCoins;
+        best = Math.max(best, score);
+        com.badlogic.gdx.Preferences p = Gdx.app.getPreferences("neon-dash");
+        p.putInteger("best", best).putInteger("coins", totalCoins).putInteger("skin", selectedSkin).flush();
+    }
+
+    private void updatePlayer(float delta) {
+        playerX = MathUtils.lerp(playerX, LANES[lane], Math.min(1f, delta * 12f));
+        if (jumpTimer > 0f) {
+            jumpTimer = Math.max(0f, jumpTimer - delta);
+            playerY = (float)Math.sin((0.68f - jumpTimer) / 0.68f * Math.PI) * 1.62f;
+        } else playerY = 0f;
+        float bob = state == State.PLAYING ? (float)Math.sin(elapsed * 9f) * 0.035f : 0f;
+        player.transform.setToTranslation(playerX, 0.42f + playerY + bob, 1.1f);
+        cockpit.transform.setToTranslation(playerX, 0.72f + playerY + bob, 1.04f);
+        leftWing.transform.setToTranslation(playerX - 0.68f, 0.36f + playerY + bob, 1.12f);
+        rightWing.transform.setToTranslation(playerX + 0.68f, 0.36f + playerY + bob, 1.12f);
+    }
+
+    private void drawInterface() {
+        float w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+        uiBatch.begin();
+        if (state == State.PLAYING) {
+            drawRect(18, h - 82, 184, 64, new Color(0.02f, 0.04f, 0.1f, 0.72f));
+            drawText("PONTOS  " + score, 32, h - 40, Color.WHITE, 1.1f);
+            drawText("MOEDAS  " + runCoins, 32, h - 65, new Color(1f, 0.8f, 0.25f, 1f), 0.9f);
+            drawRect(w - 82, h - 72, 64, 54, new Color(0.04f, 0.08f, 0.16f, 0.85f));
+            drawText("II", w - 63, h - 36, Color.WHITE, 1.1f);
+            drawText(DISTRICTS[zone], 20, 38, new Color(0.62f, 0.83f, 1f, 1f), 0.82f);
+            if (shieldTimer > 0) drawText("ESCUDO " + (int)shieldTimer + "s", 20, 64, new Color(0.3f, 0.85f, 1f, 1f), 0.82f);
+            if (magnetTimer > 0) drawText("IMA " + (int)magnetTimer + "s", 20, 88, new Color(1f, 0.45f, 0.8f, 1f), 0.82f);
+            if (doubleTimer > 0) drawText("2X PONTOS", 20, 112, new Color(0.65f, 1f, 0.45f, 1f), 0.82f);
+        } else if (state == State.MENU) {
+            drawRect(w * 0.07f, h * 0.56f, w * 0.86f, h * 0.32f, new Color(0.015f, 0.025f, 0.08f, 0.76f));
+            drawText("NEON", w * 0.29f, h * 0.81f, new Color(0.22f, 1f, 0.86f, 1f), 2.2f);
+            drawText("DASH 3D", w * 0.29f, h * 0.74f, Color.WHITE, 1.6f);
+            drawText("4 DISTRITOS  •  PODERES  •  GARAGEM", w * 0.13f, h * 0.64f, new Color(0.72f, 0.84f, 1f, 1f), 0.78f);
+            drawButton("JOGAR", w * 0.2f, h * 0.31f, w * 0.6f, h * 0.105f, NEON[zone]);
+            drawButton("GARAGEM  •  " + totalCoins + " MOEDAS", w * 0.2f, h * 0.17f, w * 0.6f, h * 0.09f, new Color(0.48f, 0.28f, 0.85f, 1f));
+            drawText("RECORDE  " + best, w * 0.33f, h * 0.1f, Color.WHITE, 0.9f);
+        } else if (state == State.GARAGE) {
+            drawRect(w * 0.07f, h * 0.79f, w * 0.86f, h * 0.12f, new Color(0.015f, 0.025f, 0.08f, 0.86f));
+            drawText("GARAGEM", w * 0.3f, h * 0.85f, Color.WHITE, 1.65f);
+            drawText("MOEDAS  " + totalCoins, w * 0.31f, h * 0.80f, new Color(1f, 0.8f, 0.25f, 1f), 0.9f);
+            String[] names = {"TURQUESA", "VIOLETA", "MAGENTA", "DOURADO"};
+            int[] prices = {0, 60, 120, 200};
+            for (int i = 0; i < 4; i++) {
+                float y = h * 0.68f - i * h * 0.115f;
+                drawRect(w * 0.12f, y - 25, w * 0.76f, 56, new Color(0.03f, 0.05f, 0.13f, 0.88f));
+                drawRect(w * 0.17f, y - 12, 28, 28, SKIN_COLORS[i]);
+                String status = selectedSkin == i ? "EQUIPADO" : unlockedSkins[i] ? "USAR" : prices[i] + " MOEDAS";
+                drawText(names[i] + "   •   " + status, w * 0.26f, y + 8, Color.WHITE, 0.92f);
+            }
+            drawButton("VOLTAR", w * 0.16f, h * 0.08f, w * 0.68f, h * 0.1f, NEON[zone]);
+        } else {
+            drawRect(w * 0.10f, h * 0.43f, w * 0.80f, h * 0.37f, new Color(0.015f, 0.025f, 0.08f, 0.9f));
+            if (state == State.PAUSED) {
+                drawText("PAUSADO", w * 0.3f, h * 0.72f, Color.WHITE, 1.8f);
+                drawButton("CONTINUAR", w * 0.16f, h * 0.34f, w * 0.68f, h * 0.12f, NEON[zone]);
+                drawButton("RECOMEÇAR", w * 0.16f, h * 0.19f, w * 0.68f, h * 0.11f, new Color(0.48f, 0.28f, 0.85f, 1f));
+            } else {
+                drawText("FIM DE JOGO", w * 0.22f, h * 0.73f, new Color(1f, 0.38f, 0.65f, 1f), 1.65f);
+                drawText("PONTOS " + score + "     RECORDE " + best, w * 0.16f, h * 0.65f, Color.WHITE, 0.92f);
+                drawText("+" + runCoins + " MOEDAS", w * 0.34f, h * 0.57f, new Color(1f, 0.8f, 0.25f, 1f), 1.05f);
+                drawButton("JOGAR DE NOVO", w * 0.16f, h * 0.22f, w * 0.68f, h * 0.12f, NEON[zone]);
+                drawButton("MENU", w * 0.16f, h * 0.075f, w * 0.68f, h * 0.10f, new Color(0.48f, 0.28f, 0.85f, 1f));
+            }
+        }
+        uiBatch.end();
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+    }
+
+    private void drawRect(float x, float y, float width, float height, Color color) {
+        uiBatch.setColor(color); uiBatch.draw(pixel, x, y, width, height); uiBatch.setColor(Color.WHITE);
+    }
+
+    private void drawButton(String label, float x, float y, float width, float height, Color color) {
+        drawRect(x, y, width, height, new Color(color.r, color.g, color.b, 0.92f));
+        drawText(label, x + width * 0.12f, y + height * 0.62f, Color.WHITE, 1.0f);
+    }
+
+    private void drawText(String text, float x, float y, Color color, float scale) {
+        font.getData().setScale(scale);
+        font.setColor(color);
+        font.draw(uiBatch, text, x, y);
+        font.getData().setScale(1.12f);
         font.setColor(Color.WHITE);
-        font.draw(spriteBatch, "NEON DASH 3D", 24, Gdx.graphics.getHeight()-30);
-        font.draw(spriteBatch, "PONTOS  " + score, 24, Gdx.graphics.getHeight()-62);
-        font.draw(spriteBatch, "RECORDE  " + best, 24, Gdx.graphics.getHeight()-88);
-        String message;
-        if (gameOver) message = "FIM DE JOGO\nToque para tentar de novo";
-        else if (!started) message = "DESVIE DOS BLOCOS\nDeslize para os lados • deslize para cima para pular\nToque para começar";
-        else message = "← → trocar de faixa     ↑ pular";
-        font.setColor(new Color(0.78f,0.9f,1f,1f));
-        font.draw(spriteBatch, message, 24, 142);
-        spriteBatch.end();
     }
 
-    @Override public void resize(int width, int height) { if (camera != null) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); } }
-    @Override public void pause() { }
+    @Override public void resize(int width, int height) {
+        if (camera != null) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); }
+    }
+    @Override public void pause() { if (state == State.PLAYING) state = State.PAUSED; }
     @Override public void resume() { }
+
     @Override public void dispose() {
         if (modelBatch != null) modelBatch.dispose();
-        if (spriteBatch != null) spriteBatch.dispose();
+        if (uiBatch != null) uiBatch.dispose();
         if (font != null) font.dispose();
-        if (floorModel != null) floorModel.dispose();
-        if (laneMarkModel != null) laneMarkModel.dispose();
+        if (pixel != null) pixel.dispose();
+        if (roadModel != null) roadModel.dispose();
+        if (markModel != null) markModel.dispose();
         if (railModel != null) railModel.dispose();
         if (playerModel != null) playerModel.dispose();
-        if (obstacleModel != null) obstacleModel.dispose();
-        if (accentModel != null) accentModel.dispose();
+        if (cockpitModel != null) cockpitModel.dispose();
+        if (wingModel != null) wingModel.dispose();
+        if (lowObstacleModel != null) lowObstacleModel.dispose();
+        if (tallObstacleModel != null) tallObstacleModel.dispose();
+        if (coinModel != null) coinModel.dispose();
+        if (shieldModel != null) shieldModel.dispose();
+        if (magnetModel != null) magnetModel.dispose();
+        if (doubleModel != null) doubleModel.dispose();
+        if (buildingModel != null) buildingModel.dispose();
+        if (buildingLightModel != null) buildingLightModel.dispose();
     }
+
     private static final class Obstacle {
-        final int lane; final ModelInstance body, accent;
-        Obstacle(int lane, ModelInstance body, ModelInstance accent) { this.lane=lane; this.body=body; this.accent=accent; }
+        final int lane; final ModelInstance body; final boolean jumpable;
+        Obstacle(int lane, ModelInstance body, boolean jumpable) { this.lane = lane; this.body = body; this.jumpable = jumpable; }
+    }
+    private static final class Pickup {
+        final int kind, lane; final ModelInstance model;
+        Pickup(int kind, int lane, ModelInstance model) { this.kind = kind; this.lane = lane; this.model = model; }
+    }
+    private static final class Building {
+        final int side; final ModelInstance body, light;
+        float width, height, depth, x;
+        Building(int side, ModelInstance body, ModelInstance light, float width, float height, float depth, float x) {
+            this.side = side; this.body = body; this.light = light; this.width = width; this.height = height; this.depth = depth; this.x = x;
+        }
     }
 }

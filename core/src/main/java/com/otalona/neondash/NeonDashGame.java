@@ -61,10 +61,11 @@ public class NeonDashGame extends ApplicationAdapter {
     private SpriteBatch uiBatch;
     private BitmapFont font;
     private Texture pixel, skylineTexture;
-    private Model roadModel, markModel, railModel, playerModel, cockpitModel, wingModel;
+    private Model roadModel, markModel, railModel, playerModel, cockpitModel, wingModel, noseModel, engineModel, lampModel;
     private Model lowObstacleModel, tallObstacleModel, coinModel, shieldModel, magnetModel, doubleModel;
     private Model buildingModel, buildingLightModel;
-    private ModelInstance road, leftRail, rightRail, player, cockpit, leftWing, rightWing;
+    private ModelInstance road, leftRail, rightRail, player, cockpit, leftWing, rightWing, nose;
+    private ModelInstance leftEngine, rightEngine, leftLamp, rightLamp;
     private State state = State.MENU;
     private float playerX, playerY, jumpTimer, spawnTimer, elapsed, speed = 11.5f;
     private float shieldTimer, magnetTimer, doubleTimer, hitFlash, worldScroll;
@@ -107,9 +108,12 @@ public class NeonDashGame extends ApplicationAdapter {
         roadModel = b.createBox(9.2f, 0.35f, 72f, mat(new Color(0.045f, 0.065f, 0.13f, 1f)), attrs);
         markModel = b.createBox(0.07f, 0.04f, 1.25f, mat(new Color(0.18f, 0.28f, 0.42f, 1f)), attrs);
         railModel = b.createBox(0.13f, 0.18f, 72f, mat(NEON[0]), attrs);
-        playerModel = b.createBox(1.18f, 0.40f, 1.18f, mat(SKIN_COLORS[0]), attrs);
-        cockpitModel = b.createSphere(0.66f, 0.45f, 0.66f, 18, 12, mat(new Color(1f, 0.78f, 0.32f, 1f)), attrs);
-        wingModel = b.createBox(0.28f, 0.18f, 0.72f, mat(new Color(0.3f, 0.9f, 1f, 1f)), attrs);
+        playerModel = b.createBox(0.94f, 0.32f, 1.55f, mat(SKIN_COLORS[0]), attrs);
+        cockpitModel = b.createSphere(0.46f, 0.34f, 0.72f, 20, 14, mat(new Color(0.22f, 0.88f, 1f, 1f)), attrs);
+        noseModel = b.createSphere(0.76f, 0.25f, 0.78f, 18, 12, mat(SKIN_COLORS[0]), attrs);
+        wingModel = b.createBox(0.92f, 0.14f, 0.94f, mat(new Color(0.24f, 0.91f, 1f, 1f)), attrs);
+        engineModel = b.createCylinder(0.30f, 0.58f, 0.30f, 16, mat(new Color(0.12f, 0.22f, 0.42f, 1f)), attrs);
+        lampModel = b.createBox(0.22f, 0.075f, 0.12f, mat(new Color(0.50f, 1f, 0.96f, 1f)), attrs);
         lowObstacleModel = b.createBox(1.35f, 0.82f, 0.95f, mat(new Color(1f, 0.22f, 0.48f, 1f)), attrs);
         tallObstacleModel = b.createBox(1.2f, 2.8f, 0.9f, mat(new Color(0.98f, 0.24f, 0.38f, 1f)), attrs);
         coinModel = b.createCylinder(0.64f, 0.16f, 0.64f, 18, mat(new Color(1f, 0.77f, 0.18f, 1f)), attrs);
@@ -124,8 +128,13 @@ public class NeonDashGame extends ApplicationAdapter {
         rightRail = new ModelInstance(railModel); rightRail.transform.setToTranslation(4.45f, -0.02f, -17f);
         player = new ModelInstance(playerModel);
         cockpit = new ModelInstance(cockpitModel);
+        nose = new ModelInstance(noseModel);
         leftWing = new ModelInstance(wingModel);
         rightWing = new ModelInstance(wingModel);
+        leftEngine = new ModelInstance(engineModel);
+        rightEngine = new ModelInstance(engineModel);
+        leftLamp = new ModelInstance(lampModel);
+        rightLamp = new ModelInstance(lampModel);
 
         for (int i = 0; i < 36; i++) {
             for (float x : new float[]{-1.05f, 1.05f}) {
@@ -189,10 +198,17 @@ public class NeonDashGame extends ApplicationAdapter {
             return;
         }
         if (state == State.GARAGE) {
-            if (inside(x, y, w * 0.1f, h * 0.08f, w * 0.8f, h * 0.11f)) state = State.MENU;
-            else {
-                int index = MathUtils.clamp((int)((h * 0.72f - y) / (h * 0.115f)), 0, 3);
-                selectSkin(index);
+            if (inside(x, y, w * 0.18f, h * 0.075f, w * 0.64f, h * 0.075f)) {
+                state = State.MENU;
+            } else {
+                for (int i = 0; i < 4; i++) {
+                    float cy = h * 0.66f - i * h * 0.112f;
+                    float cardHeight = Math.min(h * 0.065f, 70f * uiScale(w));
+                    if (inside(x, y, w * 0.10f, cy - cardHeight * 0.5f, w * 0.80f, cardHeight)) {
+                        selectSkin(i);
+                        break;
+                    }
+                }
             }
             return;
         }
@@ -239,6 +255,7 @@ public class NeonDashGame extends ApplicationAdapter {
         selectedSkin = index;
         p.putInteger("skin", selectedSkin).flush();
         playerModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
+        noseModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
     }
 
     private void startRun() {
@@ -248,6 +265,7 @@ public class NeonDashGame extends ApplicationAdapter {
         shieldTimer = magnetTimer = doubleTimer = hitFlash = 0f;
         zone = 0; state = State.PLAYING;
         playerModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
+        noseModel.materials.first().set(ColorAttribute.createDiffuse(new Color(SKIN_COLORS[selectedSkin])));
     }
 
     private void moveLane(int direction) { lane = MathUtils.clamp(lane + direction, 0, 2); }
@@ -269,8 +287,10 @@ public class NeonDashGame extends ApplicationAdapter {
         modelBatch.render(leftRail, environment); modelBatch.render(rightRail, environment);
         for (ModelInstance mark : laneMarks) modelBatch.render(mark, environment);
         for (Building building : buildings) { modelBatch.render(building.body, environment); modelBatch.render(building.light, environment); }
-        modelBatch.render(player, environment); modelBatch.render(cockpit, environment);
+        modelBatch.render(player, environment); modelBatch.render(nose, environment); modelBatch.render(cockpit, environment);
         modelBatch.render(leftWing, environment); modelBatch.render(rightWing, environment);
+        modelBatch.render(leftEngine, environment); modelBatch.render(rightEngine, environment);
+        modelBatch.render(leftLamp, environment); modelBatch.render(rightLamp, environment);
         for (Obstacle obstacle : obstacles) modelBatch.render(obstacle.body, environment);
         for (Pickup pickup : pickups) modelBatch.render(pickup.model, environment);
         modelBatch.end();
@@ -409,10 +429,16 @@ public class NeonDashGame extends ApplicationAdapter {
             playerY = (float)Math.sin((0.68f - jumpTimer) / 0.68f * Math.PI) * 1.62f;
         } else playerY = 0f;
         float bob = state == State.PLAYING ? (float)Math.sin(elapsed * 9f) * 0.035f : 0f;
-        player.transform.setToTranslation(playerX, 0.42f + playerY + bob, 1.1f);
-        cockpit.transform.setToTranslation(playerX, 0.72f + playerY + bob, 1.04f);
-        leftWing.transform.setToTranslation(playerX - 0.68f, 0.36f + playerY + bob, 1.12f);
-        rightWing.transform.setToTranslation(playerX + 0.68f, 0.36f + playerY + bob, 1.12f);
+        float y = 0.42f + playerY + bob;
+        player.transform.setToTranslation(playerX, y, 1.1f);
+        nose.transform.setToTranslation(playerX, y + 0.08f, 0.43f);
+        cockpit.transform.setToTranslation(playerX, y + 0.25f, 1.08f);
+        leftWing.transform.setToTranslation(playerX - 0.80f, y - 0.04f, 1.16f);
+        rightWing.transform.setToTranslation(playerX + 0.80f, y - 0.04f, 1.16f);
+        leftEngine.transform.setToRotation(Vector3.X, 90f).setTranslation(playerX - 0.48f, y - 0.02f, 1.32f);
+        rightEngine.transform.setToRotation(Vector3.X, 90f).setTranslation(playerX + 0.48f, y - 0.02f, 1.32f);
+        leftLamp.transform.setToTranslation(playerX - 0.30f, y + 0.08f, 0.02f);
+        rightLamp.transform.setToTranslation(playerX + 0.30f, y + 0.08f, 0.02f);
     }
 
     private void drawBackdrop() {
@@ -454,19 +480,33 @@ public class NeonDashGame extends ApplicationAdapter {
             drawButton("GARAGEM  •  " + totalCoins + " MOEDAS", w * 0.2f, h * 0.17f, w * 0.6f, h * 0.09f, new Color(0.48f, 0.28f, 0.85f, 1f));
             drawText("RECORDE  " + best, w * 0.33f, h * 0.1f, Color.WHITE, 0.9f);
         } else if (state == State.GARAGE) {
-            drawRect(w * 0.07f, h * 0.79f, w * 0.86f, h * 0.12f, new Color(0.015f, 0.025f, 0.08f, 0.86f));
-            drawText("GARAGEM", w * 0.3f, h * 0.85f, Color.WHITE, 1.65f);
-            drawText("MOEDAS  " + totalCoins, w * 0.31f, h * 0.80f, new Color(1f, 0.8f, 0.25f, 1f), 0.9f);
+            drawRect(w * 0.07f, h * 0.78f, w * 0.86f, h * 0.14f, new Color(0.015f, 0.025f, 0.08f, 0.90f));
+            drawRect(w * 0.07f, h * 0.78f, 5f * uiScale(w), h * 0.14f, NEON[zone]);
+            drawTextCentered("GARAGEM", w * 0.5f, h * 0.865f, Color.WHITE, 1.65f, w);
+            drawTextCentered("ESCOLHA SEU HOVER  •  " + totalCoins + " MOEDAS", w * 0.5f, h * 0.805f,
+                new Color(1f, 0.8f, 0.25f, 1f), 0.82f, w);
             String[] names = {"TURQUESA", "VIOLETA", "MAGENTA", "DOURADO"};
             int[] prices = {0, 60, 120, 200};
             for (int i = 0; i < 4; i++) {
-                float y = h * 0.68f - i * h * 0.115f;
-                drawRect(w * 0.12f, y - 25, w * 0.76f, 56, new Color(0.03f, 0.05f, 0.13f, 0.88f));
-                drawRect(w * 0.17f, y - 12, 28, 28, SKIN_COLORS[i]);
+                float cy = h * 0.66f - i * h * 0.112f;
+                float cardX = w * 0.10f, cardW = w * 0.80f;
+                float cardH = Math.min(h * 0.065f, 70f * uiScale(w));
+                float cardY = cy - cardH * 0.5f;
+                drawRect(cardX, cardY, cardW, cardH, new Color(0.025f, 0.045f, 0.12f, 0.94f));
+                if (selectedSkin == i) {
+                    float border = 4f * uiScale(w);
+                    drawRect(cardX, cardY, border, cardH, NEON[zone]);
+                    drawRect(cardX + border, cardY, cardW - border, 2f * uiScale(w),
+                        new Color(NEON[zone].r, NEON[zone].g, NEON[zone].b, 0.46f));
+                }
+                float swatch = Math.min(cardH * 0.44f, 25f * uiScale(w));
+                drawRect(cardX + cardW * 0.065f, cy - swatch * 0.5f, swatch, swatch, SKIN_COLORS[i]);
+                drawText(names[i], cardX + cardW * 0.17f, cy + 5f * uiScale(w), Color.WHITE, 0.87f);
                 String status = selectedSkin == i ? "EQUIPADO" : unlockedSkins[i] ? "USAR" : prices[i] + " MOEDAS";
-                drawText(names[i] + "   •   " + status, w * 0.26f, y + 8, Color.WHITE, 0.92f);
+                drawTextRight(status, cardX + cardW * 0.94f, cy + 5f * uiScale(w),
+                    selectedSkin == i ? NEON[zone] : new Color(0.77f, 0.84f, 1f, 1f), 0.72f, w);
             }
-            drawButton("VOLTAR", w * 0.16f, h * 0.08f, w * 0.68f, h * 0.1f, NEON[zone]);
+            drawButton("VOLTAR", w * 0.18f, h * 0.075f, w * 0.64f, h * 0.075f, NEON[zone], w);
         } else {
             drawRect(w * 0.10f, h * 0.43f, w * 0.80f, h * 0.37f, new Color(0.015f, 0.025f, 0.08f, 0.9f));
             if (state == State.PAUSED) {
@@ -490,17 +530,41 @@ public class NeonDashGame extends ApplicationAdapter {
     }
 
     private void drawButton(String label, float x, float y, float width, float height, Color color) {
+        drawButton(label, x, y, width, height, color, Gdx.graphics.getWidth());
+    }
+
+    private void drawButton(String label, float x, float y, float width, float height, Color color, float screenWidth) {
         drawRect(x, y, width, height, new Color(color.r, color.g, color.b, 0.92f));
-        drawText(label, x + width * 0.12f, y + height * 0.62f, Color.WHITE, 1.0f);
+        drawTextCentered(label, x + width * 0.5f, y + height * 0.58f, Color.WHITE, 0.94f, screenWidth);
     }
 
     private void drawText(String text, float x, float y, Color color, float scale) {
-        font.getData().setScale(scale);
+        font.getData().setScale(scale * uiScale(Gdx.graphics.getWidth()));
         font.setColor(color);
         font.draw(uiBatch, text, x, y);
         font.getData().setScale(1.12f);
         font.setColor(Color.WHITE);
     }
+
+    private void drawTextCentered(String text, float centerX, float y, Color color, float scale, float screenWidth) {
+        font.getData().setScale(scale * uiScale(screenWidth));
+        font.setColor(color);
+        com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, text);
+        font.draw(uiBatch, layout, centerX - layout.width * 0.5f, y);
+        font.getData().setScale(1.12f);
+        font.setColor(Color.WHITE);
+    }
+
+    private void drawTextRight(String text, float rightX, float y, Color color, float scale, float screenWidth) {
+        font.getData().setScale(scale * uiScale(screenWidth));
+        font.setColor(color);
+        com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, text);
+        font.draw(uiBatch, layout, rightX - layout.width, y);
+        font.getData().setScale(1.12f);
+        font.setColor(Color.WHITE);
+    }
+
+    private float uiScale(float screenWidth) { return MathUtils.clamp(screenWidth / 400f, 0.72f, 2.0f); }
 
     @Override public void resize(int width, int height) {
         if (camera != null) { camera.viewportWidth = width; camera.viewportHeight = height; camera.update(); }
@@ -520,6 +584,9 @@ public class NeonDashGame extends ApplicationAdapter {
         if (playerModel != null) playerModel.dispose();
         if (cockpitModel != null) cockpitModel.dispose();
         if (wingModel != null) wingModel.dispose();
+        if (noseModel != null) noseModel.dispose();
+        if (engineModel != null) engineModel.dispose();
+        if (lampModel != null) lampModel.dispose();
         if (lowObstacleModel != null) lowObstacleModel.dispose();
         if (tallObstacleModel != null) tallObstacleModel.dispose();
         if (coinModel != null) coinModel.dispose();
